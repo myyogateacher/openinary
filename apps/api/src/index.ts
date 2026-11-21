@@ -25,6 +25,7 @@ import onboarding from "./routes/onboarding";
 import health from "./routes/health";
 import { logDelivery, noteApiUpload } from "./middleware/activity";
 import { apiKeyAuth, requirePermission } from "./middleware/auth";
+import { measureDelivery } from "./middleware/metrics";
 import { publicRateLimit } from "./middleware/rate-limit";
 import { getSharedStorage } from "./config/storage";
 import { enginePaths, videoJobQueue } from "./config/queue";
@@ -98,6 +99,7 @@ app.use("/video-status/*", publicRateLimit);
 app.route("/video-status", videoStatus);
 
 app.use("/t", publicRateLimit);
+app.use("/t/*", measureDelivery("t"));
 app.use("/t/*", publicRateLimit);
 app.use("/t/*", logDelivery("/t"));
 app.route("/t", transform);
@@ -112,6 +114,7 @@ app.route("/download-folder", downloadFolder);
 
 // Public too: the URL's signature is the authorization.
 app.use("/authenticated", publicRateLimit);
+app.use("/authenticated/*", measureDelivery("authenticated"));
 app.use("/authenticated/*", publicRateLimit);
 app.use("/authenticated/*", logDelivery("/authenticated"));
 app.route("/authenticated", authenticated);
@@ -139,7 +142,10 @@ app.route("/upload", upload);
 // /queue/events streams SSE and /t/* serves already-compressed media
 app.use("/storage/*", compress());
 app.use("/storage/*", apiKeyAuth);
-app.use("/storage/*", requirePermission((c) => mediaActionFor(c.req.method)));
+app.use(
+  "/storage/*",
+  requirePermission((c) => mediaActionFor(c.req.method)),
+);
 app.route("/storage", storageRoute);
 
 // A POST, but it only reads.
@@ -153,7 +159,11 @@ app.route("/invalidate", invalidateRoute);
 app.use("/queue/*", apiKeyAuth);
 app.use(
   "/queue/*",
-  requirePermission((c) => (mediaActionFor(c.req.method) === "media:read" ? "media:read" : "queue:manage")),
+  requirePermission((c) =>
+    mediaActionFor(c.req.method) === "media:read"
+      ? "media:read"
+      : "queue:manage",
+  ),
 );
 app.route("/queue", queue);
 
